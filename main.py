@@ -15,7 +15,7 @@ tf.app.flags.DEFINE_boolean("train", False, "학습모드. 게임을 화면에 �
 FLAGS = tf.app.flags.FLAGS
 
 # 최대 학습 횟수
-MAX_EPISODE = 10000 * 10
+MAX_EPISODE = 5000
 # 1000번의 학습마다 한 번씩 타겟 네트웍을 업데이트합니다.
 TARGET_UPDATE_INTERVAL = 1000
 # 4 프레임마다 한 번씩 학습합니다.
@@ -28,6 +28,9 @@ NUM_ACTION = 6
 SCREEN_WIDTH = 5
 SCREEN_HEIGHT = 12+1
 server = Server('', 50008)
+
+LOG_PATH = "logs_dueling_tflite"
+MODEL_PATH = "model_dueling_tflite"
 
 def reshapeFromPacket(state):
     arr = []
@@ -46,11 +49,6 @@ def reshapeFromPacket(state):
     return arr
 
 def train(IS_IMPORT):
-    if IS_IMPORT == True:
-        fs = FileLoad('F:\work\cocos\dqnTest\Resources\scenario - Copy.sce')
-    else:        
-        server.accept()
-
     print('Loading ...')
     sess = tf.Session()
 
@@ -73,12 +71,8 @@ def train(IS_IMPORT):
 
     saver = tf.train.Saver(tf.global_variables())
 
-    if brain.DUELING_DQN == True:
-        ckpt = tf.train.get_checkpoint_state('./model_dueling')
-        writer = tf.summary.FileWriter('logs_dueling', sess.graph)
-    else:
-        ckpt = tf.train.get_checkpoint_state('./model')
-        writer = tf.summary.FileWriter('logs', sess.graph)
+    ckpt = tf.train.get_checkpoint_state(MODEL_PATH)
+    writer = tf.summary.FileWriter(LOG_PATH, sess.graph)
 
     if ckpt and tf.train.checkpoint_exists(ckpt.model_checkpoint_path):
         saver.restore(sess, ckpt.model_checkpoint_path)
@@ -87,8 +81,17 @@ def train(IS_IMPORT):
     
     summary_merged = tf.summary.merge_all()
 
+
+    if IS_IMPORT == True:
+        fs = FileLoad('F:\work\cocos\dqnTest\Resources\scenario - Copy.sce')
+    else:        
+        server.accept()
+
     brain.update_target_network()
     print('global_step:', sess.run(global_step))
+
+    
+
     # 게임을 시작합니다.
     for episode in range(MAX_EPISODE):
         terminal = False
@@ -109,9 +112,10 @@ def train(IS_IMPORT):
             continue
         
         state = reshapeFromPacket(state)
+        '''
         state.append(state[2])
-        state.append(state[2])
-                
+        state.append(state[2])               
+        '''
         
         brain.init_state(state)
         
@@ -126,9 +130,9 @@ def train(IS_IMPORT):
             else:                
                 
                 if np.random.rand() < epsilon:
-                    #action = random.randrange(NUM_ACTION)
-                    #print("Random action:", action)                
-                    action = -1
+                    action = random.randrange(NUM_ACTION)
+                    print("Random action:", action)                
+                    #action = -1
                     #action = random.uniform(-1, 1)
                 else:
                     action = brain.get_action()
@@ -137,10 +141,7 @@ def train(IS_IMPORT):
 
                 if episode > OBSERVE:
                     epsilon -= 1 / 1000
-
-                # 결정한 액션을 이용해 게임을 진행하고, 보상과 게임의 종료 여부를 받아옵니다.
-                #state, reward, terminal = game.step(action)
-            
+               
                 server.sendX(id, action)
             
                 
@@ -174,11 +175,14 @@ def train(IS_IMPORT):
 
             if time_step > OBSERVE and time_step % TRAIN_INTERVAL == 0:
                 # DQN 으로 학습을 진행합니다.
+                
+                brain.train()
+                '''
                 try:
-                    brain.train()
                 except:
                     print("Train Error!!")
                     time_step -= 1
+                '''
 
             if time_step % TARGET_UPDATE_INTERVAL == 0:
                 # 타겟 네트웍을 업데이트 해 줍니다.
@@ -199,11 +203,13 @@ def train(IS_IMPORT):
             total_score_list = []
 
         if (episode+1) % 100 == 0:
-            if brain.DUELING_DQN == True:
-                saver.save(sess, 'model_dueling/dqn.ckpt', global_step=global_step)
-            else:
-                saver.save(sess, 'model/dqn.ckpt', global_step=global_step)
-
+            saver.save(sess, MODEL_PATH + '/dqn.ckpt', global_step=global_step)
+    
+    #모두 학습한 후에 tflite 파일로 저장
+    converter = tf.lite.TFLiteConverter.from_session(sess, [brain.input_X], [brain.Q])
+    tflite_model = converter.convert()
+    open(MODEL_PATH + "/dqn.tflite", "wb").write(tflite_model)
+    sys.exit(1)
 
 def replay():
     print('Loading..')
@@ -214,10 +220,7 @@ def replay():
     #brain = DQN(sess, SCREEN_WIDTH, SCREEN_HEIGHT, NUM_ACTION)
 
     saver = tf.train.Saver()
-    if brain.DUELING_DQN == True:
-        ckpt = tf.train.get_checkpoint_state('model_dueling')
-    else:
-        ckpt = tf.train.get_checkpoint_state('model')
+    ckpt = tf.train.get_checkpoint_state(MODEL_PATH)    
     saver.restore(sess, ckpt.model_checkpoint_path)
 
     server.accept()
