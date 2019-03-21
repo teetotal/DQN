@@ -24,6 +24,7 @@
 
 #include "HelloWorldScene.h"
 #include "library/util.h"
+#include "tensorflow/lite/main.h"
 
 #ifdef WIN32
 #include <WinSock2.h>
@@ -75,11 +76,24 @@ bool HelloWorld::init()
 		return false;
 	}
 #endif
-	readFileTest();
-	openFile();
-	//for (int n = 0; n < 3; n++) { writeFile();	}
-	//closeFile();
-
+//    readFileTest();
+//    openFile();
+    
+    //tf
+    float a[3][3] = {
+        {1,2,3},
+        {4,5,6},
+        {7,8,9}
+    };
+    
+    float (*p)[3] = a;
+    
+    Main main;
+    float input = 987;
+    float output;
+    int n = main.init("/Users/daejung/work/tensorflow/tflite/converted_model.tflite", &input, &output);
+    CCLOG("%f, %f", input, output);
+	
     //////////////////////////////
     // 1. super init first
     if ( !Scene::init() )
@@ -160,7 +174,7 @@ void HelloWorld::initLayer() {
     //deadline
 	mDeadLineGrid = mGridSize.height / 2 - 1;
 	Vec2 p = gui::inst()->getPointVec2(0, mDeadLineGrid, ALIGNMENT_NONE, mLayer->getContentSize(), mGridSize, Size::ZERO, Size::ZERO);
-	gui::inst()->addLabelAutoDimension(2, mDeadLineGrid, "X", mLayer, 0, ALIGNMENT_NONE, Color3B::RED, mGridSize, Size::ZERO, Size::ZERO);
+	gui::inst()->addLabelAutoDimension(2, mDeadLineGrid, "X", mLayer, 0, ALIGNMENT_CENTER, Color3B::RED, mGridSize, Size::ZERO, Size::ZERO);
 	mDeadLine = p.y;
 	mDecideLine = gui::inst()->getPointVec2(0, mGridSize.height - 2, ALIGNMENT_NONE, mLayer->getContentSize(), mGridSize, Size::ZERO, Size::ZERO).y;
 	reset();
@@ -205,7 +219,7 @@ void HelloWorld::update(float f) {
 		return;
 
 	if (mSocket == -1) {		
-		move(getAI(mBall->getPosition().x));
+//        move(getAI(mBall->getPosition().x));
 	}
 	
 	switch (mState) {
@@ -413,8 +427,10 @@ void HelloWorld::onTouchMoved(Touch *touch, Event *event) {
     
     mLine = gui::inst()->drawLine(mLayer, start, end, Color4F::BLUE, 5);
 	*/
-	mBoardL->setPosition(Vec2(touch->getLocation().x, mBoardL->getPosition().y));
-	mBoardR->setPosition(Vec2(touch->getLocation().x, mBoardR->getPosition().y));
+    float x = mBoardL->getContentSize().width * 6;
+    mBoardL->setPosition(Vec2(touch->getLocation().x - x, mBoardL->getPosition().y));
+    mBoardR->setPosition(Vec2(touch->getLocation().x - x, mBoardR->getPosition().y));
+    
 }
 
 Vec2 HelloWorld::getVelocity(float endX){
@@ -467,10 +483,9 @@ bool HelloWorld::onContactBegin(PhysicsContact &contact) {
     return true;
 }
 void HelloWorld::execute() {
-	ADDOBSTACLE;	
-	//action 저장
-	writeFileAction(&mCurrentAIVal);
-	CCLOG("Save action");
+	ADDOBSTACLE;
+//    writeFileAction(&mCurrentAIVal);
+//    CCLOG("Save action");
 	mScore = 0;
 	mState = READY;
 }
@@ -532,13 +547,14 @@ void HelloWorld::run(bool isTerminal) {
 	else if(mSocket != -1) {
 		move(recvAI());
 	}
-	else {
-		CCLOG("packet");
-	}
+	
 	mCaptures.clear();
 	::memset(&mPacket, 0, sizeof(mPacket));
 }
 int HelloWorld::getAI(float x) {
+    if(mBall == NULL)
+        return 0;
+    
 	float ratio = x / mLayer->getContentSize().width;
 	int n = (ratio / 0.2) + 1;	
 	if (mBall->getPhysicsBody()->getVelocity().x < 0)
@@ -601,8 +617,7 @@ int HelloWorld::recvAI() {
 
 void HelloWorld::sendRecv(_packet & packet) {
 	if (mSocket == -1) {
-		//packet저장
-		writeFile();
+//        writeFile();
 		return;
 	}
 
