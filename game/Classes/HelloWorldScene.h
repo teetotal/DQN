@@ -28,6 +28,8 @@
 #include "library/PhysicsScene.h"
 #include <mutex>
 #define CAPTURE_SIZE 3
+#define WIDTH 5
+#define HEIGHT 13
 class HelloWorld : public PhysicsScene
 {
 public:
@@ -37,11 +39,19 @@ public:
     CREATE_FUNC_PHYSICS(HelloWorld);
 private:
 	struct _capture {
-		float array[5 * (12 + 1)];
+		float array[WIDTH * HEIGHT];
 		_capture() {
 			memset(&array, 0, sizeof(array));
 		}
 		
+	};
+
+	struct _capture_reshape {
+		float array[WIDTH * HEIGHT * CAPTURE_SIZE];
+		_capture_reshape() {
+			memset(&array, 0, sizeof(array));
+		}
+
 	};
 
     bool onTouchBegan(Touch* touch, Event* event) ;
@@ -113,19 +123,21 @@ private:
         int totalReward;
         int isTerminal;
 		//_capture cap[CAPTURE_SIZE];
+		_capture_reshape cap;
+		/*
 		_capture cap1;
 		_capture cap2;
 		_capture cap3;
+		*/
 
     };
 #pragma pack(pop)
 	_packet mPacket;
-	
+	void makeReshape(_capture &cap1, _capture &cap2, _capture &cap3);
     int createSocket(const char * host, unsigned short port);
     void sendRecv(_packet & packet);	
 	int recvAI();
-	int getAI(float x);	
-	int getAI();
+	int getAI(float x);		
 
     int mSocket;
     int mSendSeq;
@@ -178,7 +190,7 @@ private:
 					size = fread(&p, 1, sizeof(_packet), fp);
 					if (size < sizeof(_packet))
 						break;
-					CCLOG("[type: %d] id: %d, teminal: %d, reward: %d, x3: %f, y3: %f", type, p.id, p.isTerminal, p.reward, p.cap3.array[60], p.cap3.array[61]);
+					//CCLOG("[type: %d] id: %d, teminal: %d, reward: %d, x3: %f, y3: %f", type, p.id, p.isTerminal, p.reward, p.cap3.array[60], p.cap3.array[61]);
 				}
 				else {
 					int n;

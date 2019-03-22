@@ -24,7 +24,7 @@
 
 #include "HelloWorldScene.h"
 #include "library/util.h"
-#include "tensorflow/lite/main.h"
+//#include "tensorflow/lite/main.h"
 
 #ifdef WIN32
 #include <WinSock2.h>
@@ -80,6 +80,7 @@ bool HelloWorld::init()
 //    openFile();
     
     //tf
+	/*
     float a[3][3] = {
         {1,2,3},
         {4,5,6},
@@ -93,7 +94,7 @@ bool HelloWorld::init()
     float output;
     int n = main.init("/Users/daejung/work/tensorflow/tflite/converted_model.tflite", &input, &output);
     CCLOG("%f, %f", input, output);
-	
+	*/
     //////////////////////////////
     // 1. super init first
     if ( !Scene::init() )
@@ -241,9 +242,12 @@ void HelloWorld::update(float f) {
 					mCaptures.push_back(p);
 				}
 			}
+			/*
 			memcpy(&mPacket.cap1, &mCaptures[0], sizeof(_capture));
 			memcpy(&mPacket.cap2, &mCaptures[mCaptures.size() / 2], sizeof(_capture));
 			memcpy(&mPacket.cap3, &mCaptures[mCaptures.size()-1], sizeof(_capture));
+			*/
+			makeReshape(mCaptures[0], mCaptures[mCaptures.size() / 2], mCaptures[mCaptures.size() - 1]);
 
 			return run(false);
 		}
@@ -252,8 +256,28 @@ void HelloWorld::update(float f) {
 			capture(&p);
 			mCaptures.push_back(p);
 		}
+	}		
+}
+
+void HelloWorld::makeReshape(_capture &cap1, _capture &cap2, _capture &cap3) {
+	float c1[WIDTH][HEIGHT];
+	float c2[WIDTH][HEIGHT];
+	float c3[WIDTH][HEIGHT];
+
+	memcpy(c1, &cap1.array, sizeof(c1));
+	memcpy(c2, &cap2.array, sizeof(c2));
+	memcpy(c3, &cap3.array, sizeof(c3));
+
+	float temp[WIDTH][HEIGHT][CAPTURE_SIZE];
+	for (int x = 0; x < WIDTH; x++) {
+		for (int y = 0; y < HEIGHT; y++) {
+			temp[x][y][0] = c1[x][y];
+			temp[x][y][1] = c2[x][y];
+			temp[x][y][2] = c3[x][y];
+		}
 	}
-		
+
+	memcpy(mPacket.cap.array, temp, sizeof(mPacket.cap));
 }
 
 Sprite * HelloWorld::getObstacle() {
@@ -495,12 +519,17 @@ void HelloWorld::increaseScore() {
 	mScore++;
     mLock.unlock();
 }
-
+/*
+	Packet
+*/
 void HelloWorld::capture(_capture * buf)
 {
+	float array[5 * (12 + 1)];
+	memset(array, 0, sizeof(array));
+
 	for (std::map<int, _pos>::iterator it = mMap.begin(); it != mMap.end(); ++it) {
 		int idx = it->second.x + (it->second.y * mGridSize.width);
-		buf->array[idx] = 1;
+		array[idx] = 1;
 	}
 	float x, y;
 	x = mBall->getPosition().x / mLayer->getContentSize().width;	
@@ -512,12 +541,49 @@ void HelloWorld::capture(_capture * buf)
 
 	//gui::inst()->addLabelAutoDimension(pos.x, pos.y, "O", mLayer, 0, ALIGNMENT_CENTER, Color3B::YELLOW, mGridSize, Size::ZERO, Size::ZERO)->runAction(Sequence::create(Blink::create(1, 1), RemoveSelf::create(), NULL));
 	int idx = (mGridSize.width * pos.y) + pos.x;
-	buf->array[idx] = 2;
+	array[idx] = 2;
 	//mRect->setPosition(posRect);
 	idx = mGridSize.width * mGridSize.height;
 	Vec2 velocity = mBall->getPhysicsBody()->getVelocity();
-	buf->array[idx] = velocity.x / mDefaultVelocity;
-	buf->array[idx + 1] = velocity.y / mDefaultVelocity;
+	array[idx] = velocity.x / mDefaultVelocity;
+	array[idx + 1] = velocity.y / mDefaultVelocity;
+
+	bool isReshape = true;
+	//reshape
+	if (isReshape) {
+		float tempArr[HEIGHT][WIDTH];
+		idx = 0;
+		for (int y = 0; y < HEIGHT; y++) {
+			for (int x = 0; x < WIDTH; x++) {
+				tempArr[y][x] = array[idx];
+				idx++;
+			}
+		}
+		idx = 0;
+		for (int x = 0; x < WIDTH; x++) {
+			for (int y = HEIGHT - 1; y >= 0; y--) {
+				buf->array[idx] = tempArr[y][x];
+				idx++;
+			}
+		}
+
+		//검증
+		/*
+		float temp[WIDTH][HEIGHT];
+		idx = 0;
+		for (int x = 0; x < WIDTH; x++) {
+		for (int y = 0; y < HEIGHT; y++) {
+		temp[x][y] = buf->array[idx];
+		idx++;
+		}
+		}
+		idx = 0;
+		*/
+	}
+	else {
+		memcpy(buf->array, array, sizeof(buf->array));
+	}
+	
 }
 
 void HelloWorld::run(bool isTerminal) {	
@@ -563,21 +629,10 @@ int HelloWorld::getAI(float x) {
 	return n;
 }
 
-int HelloWorld::getAI() {
-	int x;
-	for (int n = 0; n < sizeof(mPacket.cap3.array) / sizeof(mPacket.cap3.array[0]); n++) {
-		if (mPacket.cap3.array[n] == 2) {
-			x = (n % 5);
-			break;
-		}
-	}
-	
-	return x;
-}
 
 int HelloWorld::recvAI() {
 	if (mSocket == -1) {		
-		return getAI(); 
+		return 0; 
 	}
 
 	unsigned char buf[8] = { 0, };
@@ -607,7 +662,7 @@ int HelloWorld::recvAI() {
 		return packetRecv.x;
 	
 	// 클라에서 판단
-	int x = getAI();
+	int x = getRandValue(6);
 	_packetRecv p;
 	p.id = packetRecv.id;
 	p.x = x;
