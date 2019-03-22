@@ -79,28 +79,18 @@ bool HelloWorld::init()
 //    readFileTest();
 //    openFile();
     
-    //tf
-	/*
-    float a[3][3] = {
-        {1,2,3},
-        {4,5,6},
-        {7,8,9}
-    };
     
-    float (*p)[3] = a;
     
-    Main main;
-    float input = 987;
-    float output;
-    int n = main.init("/Users/daejung/work/tensorflow/tflite/converted_model.tflite", &input, &output);
-    CCLOG("%f, %f", input, output);
-	*/
     //////////////////////////////
     // 1. super init first
     if ( !Scene::init() )
     {
         return false;
     }
+    //tf
+    mTflitePath = FileUtils::getInstance()->fullPathForFilename("dqn.tflite");
+    mTflite.init(mTflitePath.c_str());
+    
     mTestDegree = 0;
     //init socket
     mSocket = createSocket("127.0.0.1", 50008);
@@ -610,9 +600,9 @@ void HelloWorld::run(bool isTerminal) {
 		//temp	
 		//if(mSocket == -1) move(recvAI());
 	}
-	else if(mSocket != -1) {
-		move(recvAI());
-	}
+	//else if(mSocket != -1)
+    move(recvAI());
+	
 	
 	mCaptures.clear();
 	::memset(&mPacket, 0, sizeof(mPacket));
@@ -631,8 +621,24 @@ int HelloWorld::getAI(float x) {
 
 
 int HelloWorld::recvAI() {
-	if (mSocket == -1) {		
-		return 0; 
+	if (mSocket == -1) {
+        float output[6] = {0,};
+        int n = mTflite.run(mPacket.cap.array
+                             , sizeof(mPacket.cap.array) / sizeof(mPacket.cap.array[0])
+                             , output
+                             , 6
+                             , false);
+        float maxVal = -1000;
+        int maxIdx;
+        for(int n=0; n <6; n++){
+            CCLOG("%d - %f", n, output[n]);
+            if(maxVal < output[n]) {
+                maxVal = output[n];
+                maxIdx = n;
+            }
+        }
+        
+		return maxIdx;
 	}
 
 	unsigned char buf[8] = { 0, };
