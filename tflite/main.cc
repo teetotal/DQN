@@ -1,12 +1,27 @@
 #include "main.h"
+#include "tfliteAPI.h"
+
+main::main() {
+  mTfliteAPI = NULL;
+}
+void main::init(const char * tflitePath) {
+  if(mTfliteAPI == NULL)
+    mTfliteAPI = (void*)(new tfliteAPI);
+  ((tfliteAPI *)mTfliteAPI)->init(tflitePath);
+}
+int main::run(float * inputValue, int inputCount, float * outputValue, int outputCount, bool isDebugLog)
+{
+  return ((tfliteAPI *)mTfliteAPI)->run(inputValue, inputCount, outputValue, outputCount, isDebugLog);
+}
+/*
+#include "main.h"
 #include "./kernels/register.h"
 #include "./model.h"
 #include "./op_resolver.h"
 #include "./string_util.h"
 
-int tfliteAPI::init(const char * tflitePath) {
+void tfliteAPI::init(const char * tflitePath) {
   mModelPath = tflitePath;
-  return 0;
 }
 
 int tfliteAPI::run(float * inputValue, int inputCount, float * outputValue, int outputCount, bool isDebugLog)
@@ -47,10 +62,10 @@ int tfliteAPI::run(float * inputValue, int inputCount, float * outputValue, int 
   
   // Fill `input`.
   memcpy(input, inputValue, sizeof(float) * inputCount);
-  /*
-    val = *(inputValue + n);
-    *(input + n) = val;
-  */
+  
+    // val = *(inputValue + n);
+    // *(input + n) = val;
+  
 
   if(isDebugLog) {
     for(int n=0; n< inputCount; n++){  
@@ -68,10 +83,11 @@ int tfliteAPI::run(float * inputValue, int inputCount, float * outputValue, int 
 
   if(isDebugLog) {
     for(int n=0; n < outputCount; n++) {
-      //*(outputValue + n) = *(out + n);
+      // *(outputValue + n) = *(out + n);
         printf("%d-%f (%f)\n", n, *(outputValue + n), *(out + n));
     }
   }
   
   return 0;
 }
+*/

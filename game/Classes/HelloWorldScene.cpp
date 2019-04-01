@@ -24,7 +24,6 @@
 
 #include "HelloWorldScene.h"
 #include "library/util.h"
-//#include "tensorflow/lite/main.h"
 
 #ifdef WIN32
 #include <WinSock2.h>
@@ -88,9 +87,15 @@ bool HelloWorld::init()
         return false;
     }
     //tf
-    mTflitePath = FileUtils::getInstance()->fullPathForFilename("dqn.tflite");
-    mTflite.init(mTflitePath.c_str());
-    
+    mTflite.reset(new main);
+
+    mTflitePath = FileUtils::getInstance()->getWritablePath() + "dqn.tflite";
+	if(!FileUtils::getInstance()->isFileExist(mTflitePath)) {
+        FileUtils::getInstance()->writeDataToFile(FileUtils::getInstance()->getDataFromFile("dqn.tflite"), mTflitePath);
+	}
+    //mTflitePath = FileUtils::getInstance()->fullPathForFilename("dqn.tflite");
+    mTflite->init(mTflitePath.c_str());
+
     mTestDegree = 0;
     //init socket
     mSocket = createSocket("127.0.0.1", 50008);
@@ -103,9 +108,6 @@ bool HelloWorld::init()
 			mTotal += n * 2;
 	}
     gui::inst()->init();
-	//796
-	int size = sizeof(mPacket);
-    
     //init var
 	mLayer = NULL;
     mLine = NULL;
@@ -557,7 +559,7 @@ void HelloWorld::capture(_capture * buf)
 			}
 		}
 
-		//°ËÁõ
+		//ï¿½ï¿½ï¿½ï¿½
 		/*
 		float temp[WIDTH][HEIGHT];
 		idx = 0;
@@ -622,12 +624,13 @@ int HelloWorld::getAI(float x) {
 
 int HelloWorld::recvAI() {
 	if (mSocket == -1) {
+
         float output[6] = {0,};
-        int n = mTflite.run(mPacket.cap.array
+        int n = mTflite->run(mPacket.cap.array
                              , sizeof(mPacket.cap.array) / sizeof(mPacket.cap.array[0])
                              , output
                              , 6
-                             , false);
+                             , true);
         float maxVal = -1000;
         int maxIdx;
         for(int n=0; n <6; n++){
@@ -639,6 +642,8 @@ int HelloWorld::recvAI() {
         }
         
 		return maxIdx;
+
+	    return 0;
 	}
 
 	unsigned char buf[8] = { 0, };
@@ -667,7 +672,7 @@ int HelloWorld::recvAI() {
 	if(packetRecv.x != -1)
 		return packetRecv.x;
 	
-	// Å¬¶ó¿¡¼­ ÆÇ´Ü
+	// Å¬ï¿½ó¿¡¼ï¿½ ï¿½Ç´ï¿½
 	int x = getRandValue(6);
 	_packetRecv p;
 	p.id = packetRecv.id;

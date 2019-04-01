@@ -27,6 +27,7 @@
 
 #include "library/PhysicsScene.h"
 #include "tensorflow/lite/main.h"
+
 #include <mutex>
 #define CAPTURE_SIZE 3
 #define WIDTH 5
@@ -39,7 +40,7 @@ public:
     // implement the "static create()" method manually
     CREATE_FUNC_PHYSICS(HelloWorld);
 private:
-    tfliteAPI mTflite;
+    std::unique_ptr<main> mTflite;
     string mTflitePath;
     
 	struct _capture {
